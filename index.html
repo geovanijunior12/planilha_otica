@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#02060f">
 <title>Olhar Paraibano</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+
+
 <script>
 /* aplica o tema antes de pintar a tela (evita "flash") */
 try{var t=localStorage.getItem('op-tema');if(!t)t='dark';document.documentElement.dataset.tema=t;}catch(e){}
@@ -592,6 +597,7 @@ dialog.pequeno{width:min(460px,92vw)}
     <fieldset><legend>Novo funcionário</legend>
       <div class="grade">
         <label>Usuário<input id="nUser" autocomplete="off"></label>
+        <label>E-mail<input type="email" id="nEmail" required></label>
         <label>Senha (mín. 6 caracteres)<input type="password" id="nSenha" autocomplete="new-password"></label>
       </div>
       <label class="check" style="margin-top:12px"><input type="checkbox" id="nAdmin"> Administrador (pode gerenciar a equipe)</label>
@@ -605,38 +611,155 @@ dialog.pequeno{width:min(460px,92vw)}
 
 <script>
 'use strict';
+const supabaseClient = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
 /* ===== Banco de dados permanente (IndexedDB) — inalterado ===== */
 const DB_NOME='otica-controle',LOJA='clientes',LOJA_C='cidades',LOJA_U='usuarios',LOJA_D='despesas';
 let db;
-function abrirBanco(){return new Promise((ok,falha)=>{
-  const req=indexedDB.open(DB_NOME,4);
-  req.onupgradeneeded=()=>{const d=req.result;
-    if(!d.objectStoreNames.contains(LOJA))d.createObjectStore(LOJA,{keyPath:'id',autoIncrement:true});
-    if(!d.objectStoreNames.contains(LOJA_C))d.createObjectStore(LOJA_C,{keyPath:'id',autoIncrement:true});
-    if(!d.objectStoreNames.contains(LOJA_U))d.createObjectStore(LOJA_U,{keyPath:'id',autoIncrement:true});
-    if(!d.objectStoreNames.contains(LOJA_D))d.createObjectStore(LOJA_D,{keyPath:'id',autoIncrement:true});};
-  req.onsuccess=()=>ok(req.result);req.onerror=()=>falha(req.error);});}
-function pedido(modo,fn,loja=LOJA){return new Promise((ok,falha)=>{
-  const t=db.transaction(loja,modo);const req=fn(t.objectStore(loja));
-  t.oncomplete=()=>ok(req?req.result:undefined);t.onerror=t.onabort=()=>falha(t.error);});}
-const dbListar=()=>pedido('readonly',s=>s.getAll());
-const dbSalvar=c=>pedido('readwrite',s=>s.put(c));
-const dbExcluir=id=>pedido('readwrite',s=>s.delete(id));
-const dbListarCidades=()=>pedido('readonly',s=>s.getAll(),LOJA_C);
-const dbSalvarCidade=c=>pedido('readwrite',s=>s.put(c),LOJA_C);
-const dbExcluirCidade=id=>pedido('readwrite',s=>s.delete(id),LOJA_C);
+
+/* ===== Banco de dados: IndexedDB + Supabase ===== */
+
+// Mantém o IndexedDB temporariamente para os usuários antigos.
+function abrirBanco(){
+  return new Promise((ok,falha)=>{
+    const req=indexedDB.open(DB_NOME,4);
+    req.onupgradeneeded=()=>{
+      const d=req.result;
+      if(!d.objectStoreNames.contains(LOJA))
+        d.createObjectStore(LOJA,{keyPath:'id',autoIncrement:true});
+      if(!d.objectStoreNames.contains(LOJA_C))
+        d.createObjectStore(LOJA_C,{keyPath:'id',autoIncrement:true});
+      if(!d.objectStoreNames.contains(LOJA_U))
+        d.createObjectStore(LOJA_U,{keyPath:'id',autoIncrement:true});
+      if(!d.objectStoreNames.contains(LOJA_D))
+        d.createObjectStore(LOJA_D,{keyPath:'id',autoIncrement:true});
+    };
+    req.onsuccess=()=>ok(req.result);
+    req.onerror=()=>falha(req.error);
+  });
+}
+
+// Operações locais: usadas somente pelo login antigo nesta etapa.
+function pedido(modo,fn,loja=LOJA){
+  return new Promise((ok,falha)=>{
+    const t=db.transaction(loja,modo);
+    const req=fn(t.objectStore(loja));
+    t.oncomplete=()=>ok(req?req.result:undefined);
+    t.onerror=t.onabort=()=>falha(t.error);
+  });
+}
+
 const dbListarUsuarios=()=>pedido('readonly',s=>s.getAll(),LOJA_U);
 const dbSalvarUsuario=u=>pedido('readwrite',s=>s.put(u),LOJA_U);
 const dbExcluirUsuario=id=>pedido('readwrite',s=>s.delete(id),LOJA_U);
-const dbListarDespesas=()=>pedido('readonly',s=>s.getAll(),LOJA_D);
-const dbSalvarDespesa=d=>pedido('readwrite',s=>s.put(d),LOJA_D);
-const dbExcluirDespesa=id=>pedido('readwrite',s=>s.delete(id),LOJA_D);
-function dbSubstituirTudo(lc,li,ld){return new Promise((ok,falha)=>{
-  const t=db.transaction([LOJA,LOJA_C,LOJA_D],'readwrite');
-  const sc=t.objectStore(LOJA),si=t.objectStore(LOJA_C),sd=t.objectStore(LOJA_D);
-  sc.clear();si.clear();lc.forEach(x=>sc.put(x));li.forEach(x=>si.put(x));
-  if(ld){sd.clear();ld.forEach(x=>sd.put(x));}
-  t.oncomplete=()=>ok();t.onerror=t.onabort=()=>falha(t.error);});}
+
+// Gera IDs numéricos novos, sem conflitar com os IDs antigos.
+let ultimoIdNuvem=0;
+
+function gerarIdNuvem(){
+  ultimoIdNuvem=Math.max(Date.now()*1000,ultimoIdNuvem+1);
+  return ultimoIdNuvem;
+}
+
+// Salva ou atualiza um registro no Supabase.
+async function salvarNuvem(tabela,item){
+  const registro={...item};
+
+  if(registro.id===undefined || registro.id===null || registro.id===''){
+    registro.id=gerarIdNuvem();
+    item.id=registro.id;
+  }else{
+    registro.id=Number(registro.id);
+  }
+
+  const {error}=await supabaseClient
+    .from(tabela)
+    .upsert({
+      id:registro.id,
+      dados:registro
+    });
+
+  if(error)throw error;
+  return registro.id;
+}
+
+// Consulta os registros no Supabase.
+async function listarNuvem(tabela){
+  const {data,error}=await supabaseClient
+    .from(tabela)
+    .select('dados');
+
+  if(error)throw error;
+  return (data||[]).map(registro=>registro.dados);
+}
+
+// Exclui um registro no Supabase.
+async function excluirNuvem(tabela,id){
+  const {error}=await supabaseClient
+    .from(tabela)
+    .delete()
+    .eq('id',Number(id));
+
+  if(error)throw error;
+}
+
+// ===== Clientes =====
+const dbListar=()=>listarNuvem('op_clientes');
+const dbSalvar=c=>salvarNuvem('op_clientes',c);
+const dbExcluir=id=>excluirNuvem('op_clientes',id);
+
+// ===== Cidades =====
+const dbListarCidades=()=>listarNuvem('op_cidades');
+const dbSalvarCidade=c=>salvarNuvem('op_cidades',c);
+const dbExcluirCidade=id=>excluirNuvem('op_cidades',id);
+
+// ===== Despesas =====
+const dbListarDespesas=()=>listarNuvem('op_despesas');
+const dbSalvarDespesa=d=>salvarNuvem('op_despesas',d);
+const dbExcluirDespesa=id=>excluirNuvem('op_despesas',id);
+
+// ===== Restaurar backup =====
+// Atenção: substitui todos os dados das três tabelas.
+async function dbSubstituirTudo(lc,li,ld){
+  const tabelas=[
+    ['op_clientes',lc||[]],
+    ['op_cidades',li||[]]
+  ];
+
+  if(ld!==null && ld!==undefined){
+    tabelas.push(['op_despesas',ld]);
+  }
+
+  for(const [tabela] of tabelas){
+    const {error}=await supabaseClient
+      .from(tabela)
+      .delete()
+      .neq('id',-1);
+
+    if(error)throw error;
+  }
+
+  for(const [tabela,lista] of tabelas){
+    if(!lista.length)continue;
+
+    const registros=lista.map(item=>({
+      id:Number(item.id)||gerarIdNuvem(),
+      dados:{...item,id:Number(item.id)||undefined}
+    }));
+
+    registros.forEach((r,i)=>{
+      r.dados.id=r.id;
+    });
+
+    const {error}=await supabaseClient
+      .from(tabela)
+      .upsert(registros);
+
+    if(error)throw error;
+  }
+}
 
 /* ===== Utilidades ===== */
 const $=id=>document.getElementById(id);
@@ -1094,76 +1217,301 @@ async function hashSenha(senha,salt){
 const novoSalt=()=>hex(crypto.getRandomValues(new Uint8Array(16)));
 async function criarUsuario(login,senha,admin){const salt=novoSalt();return dbSalvarUsuario({login,salt,hash:await hashSenha(senha,salt),admin:!!admin});}
 const achaUser=l=>usuarios.find(u=>norm(u.login)===norm(l));
-const recarregarUsuarios=async()=>{usuarios=await dbListarUsuarios();};
-function erroLogin(m){const e=$('lErro');e.textContent=m||'';e.hidden=!m;}
+const recarregarUsuarios=async()=>{
+  const {data,error}=await supabaseClient
+    .from('op_perfis')
+    .select('id,login,admin')
+    .order('login');
+
+  if(error)throw error;
+
+  usuarios=data||[];
+};function erroLogin(m){const e=$('lErro');e.textContent=m||'';e.hidden=!m;}
 
 function mostrarLogin(){
-  usuarioAtual=null;$('topo').hidden=true;$('app').hidden=true;$('telaLogin').hidden=false;
+  usuarioAtual=null;
+  $('topo').hidden=true;
+  $('app').hidden=true;
+  $('telaLogin').hidden=false;
+
   document.title='Olhar Paraibano';
-  const primeiro=!usuarios.length;
-  $('loginSub').textContent=primeiro?'Primeiro acesso: crie o usuário administrador':'Acesso restrito aos funcionários';
-  $('lConfLabel').hidden=!primeiro;$('lBtn').textContent=primeiro?'Criar e entrar':'Entrar';
-  $('lSenha').autocomplete=primeiro?'new-password':'current-password';
-  $('lUser').value=$('lSenha').value=$('lConf').value='';erroLogin('');$('lUser').focus();}
+  $('loginSub').textContent='Acesso restrito aos funcionários';
+
+  $('lConfLabel').hidden=true;
+  $('lBtn').textContent='Entrar';
+
+  $('lUser').type='email';
+  $('lUser').placeholder='Digite seu e-mail';
+  $('lUser').autocomplete='username';
+  $('lSenha').autocomplete='current-password';
+
+  $('lUser').value=$('lSenha').value=$('lConf').value='';
+  erroLogin('');
+  $('lUser').focus();
+}
+
 async function entrar(u){
-  usuarioAtual=u;try{sessionStorage.setItem('otica-user',String(u.id));}catch(e){}
-  $('telaLogin').hidden=true;$('topo').hidden=false;$('app').hidden=false;
-  cidadeSel=null;telaDesp=false;limparFiltros();await recarregar();}
+  usuarioAtual=u;
+
+  $('telaLogin').hidden=true;
+  $('topo').hidden=false;
+  $('app').hidden=false;
+
+  cidadeSel=null;
+  telaDesp=false;
+  limparFiltros();
+
+  await recarregar();
+}
 
 $('formLogin').addEventListener('submit',async e=>{
   e.preventDefault();
-  const login=$('lUser').value.trim(),senha=$('lSenha').value;
-  if(!login||!senha)return erroLogin('Informe usuário e senha.');
-  const btn=$('lBtn');btn.disabled=true;
+
+  const email=$('lUser').value.trim();
+  const senha=$('lSenha').value;
+  const btn=$('lBtn');
+
+  if(!email||!senha)return erroLogin('Informe e-mail e senha.');
+
+  btn.disabled=true;
+
   try{
-    if(!usuarios.length){
-      if(senha.length<6)return erroLogin('A senha deve ter pelo menos 6 caracteres.');
-      if(senha!==$('lConf').value)return erroLogin('As senhas não conferem.');
-      const id=await criarUsuario(login,senha,true);await recarregarUsuarios();
-      return entrar(usuarios.find(u=>u.id===id));}
-    if(Date.now()<bloqAte)return erroLogin('Muitas tentativas. Aguarde '+Math.ceil((bloqAte-Date.now())/1000)+' segundos.');
-    const u=achaUser(login);
-    if(u&&await hashSenha(senha,u.salt)===u.hash){falhas=0;return entrar(u);}
-    if(++falhas>=5){falhas=0;bloqAte=Date.now()+30000;}
-    erroLogin('Usuário ou senha incorretos.');
-  }catch(err){erroLogin('Erro: '+(err&&err.message?err.message:err));}
-  finally{btn.disabled=false;}});
-$('btnSair').addEventListener('click',()=>{try{sessionStorage.removeItem('otica-user');}catch(e){}mostrarLogin();});
+    const {data,error}=await supabaseClient.auth.signInWithPassword({
+      email,
+      password:senha
+    });
+
+    if(error)throw error;
+
+    const {data:perfil,error:erroPerfil}=await supabaseClient
+      .from('op_perfis')
+      .select('id,login,admin')
+      .eq('id',data.user.id)
+      .single();
+
+    if(erroPerfil)throw erroPerfil;
+
+    await entrar(perfil);
+
+  }catch(err){
+    erroLogin('Não foi possível entrar: '+err.message);
+  }finally{
+    btn.disabled=false;
+  }
+});
+
+$('btnSair').addEventListener('click',async()=>{
+  await supabaseClient.auth.signOut();
+  mostrarLogin();
+});
 
 function desenharEquipe(){
-  const adm=usuarioAtual.admin;$('formEquipe').hidden=!adm;
-  $('listaEquipe').innerHTML=usuarios.map(u=>`<div class="usr"><span><b>${esc(u.login)}</b>${u.admin?'<span class="badge">admin</span>':''}${u.id===usuarioAtual.id?' <small>(você)</small>':''}</span><span class="acoes">${adm||u.id===usuarioAtual.id?`<button class="mini" data-senha="${u.id}">Trocar senha</button>`:''}${adm&&u.id!==usuarioAtual.id?`<button class="mini excluir" data-del="${u.id}">Remover</button>`:''}</span></div>`).join('');}
+  const adm=usuarioAtual?.admin===true;
+
+  $('formEquipe').hidden=!adm;
+
+  $('listaEquipe').innerHTML=usuarios.map(u=>`
+    <div class="usr">
+      <span>
+        <b>${esc(u.login)}</b>
+        ${u.admin?'<span class="badge">admin</span>':''}
+        ${u.id===usuarioAtual.id?' <small>(você)</small>':''}
+      </span>
+      <span class="acoes">
+        ${adm?`
+          <button class="mini" data-senha="${u.id}">Trocar senha</button>
+          ${u.id!==usuarioAtual.id?`
+            <button class="mini excluir" data-del="${u.id}">Remover</button>
+          `:''}
+        `:''}
+      </span>
+    </div>
+  `).join('');
+}
 $('btnEquipe').addEventListener('click',()=>{desenharEquipe();$('nErro').hidden=true;$('dlgEquipe').showModal();});
 $('btnFecharEquipe').addEventListener('click',()=>$('dlgEquipe').close());
 $('dlgEquipe').addEventListener('click',e=>{if(e.target===$('dlgEquipe'))$('dlgEquipe').close();});
+
 $('formEquipe').addEventListener('submit',async e=>{
-  e.preventDefault();const l=$('nUser').value.trim(),s=$('nSenha').value;
-  const er=!l?'Informe o usuário.':achaUser(l)?'Esse usuário já existe.':s.length<6?'A senha deve ter pelo menos 6 caracteres.':'';
-  if(er){$('nErro').textContent=er;$('nErro').hidden=false;return;}
-  await criarUsuario(l,s,$('nAdmin').checked);await recarregarUsuarios();
-  $('nUser').value=$('nSenha').value='';$('nAdmin').checked=false;$('nErro').hidden=true;desenharEquipe();aviso('Funcionário adicionado.');});
+  e.preventDefault();
+
+  const login=$('nUser').value.trim();
+  const email=$('nEmail').value.trim();
+  const senha=$('nSenha').value;
+  const admin=$('nAdmin').checked;
+
+  const erro=!login?'Informe o usuário.':
+    !email?'Informe o e-mail.':
+    senha.length<6?'A senha deve ter pelo menos 6 caracteres.':'';
+
+  if(erro){
+    $('nErro').textContent=erro;
+    $('nErro').hidden=false;
+    return;
+  }
+
+  const btn=e.submitter;
+  if(btn)btn.disabled=true;
+
+  try{
+    const {data,error}=await supabaseClient.functions.invoke(
+      'rapid-endpoint',
+      {
+        body:{
+          acao:'cadastrar',
+          login,
+          email,
+          senha,
+          admin
+        }
+      }
+    );
+
+    if(error)throw error;
+    if(data?.erro)throw new Error(data.erro);
+
+    await recarregarUsuarios();
+
+    $('nUser').value='';
+    $('nEmail').value='';
+    $('nSenha').value='';
+    $('nAdmin').checked=false;
+    $('nErro').hidden=true;
+
+    desenharEquipe();
+    aviso('Funcionário cadastrado com sucesso.');
+
+    }catch(err){
+    console.error('Erro completo:',err);
+
+    let mensagem=err.message||'Erro ao cadastrar funcionário.';
+
+    if(err.context && typeof err.context.clone==='function'){
+      try{
+        const texto=await err.context.clone().text();
+
+        if(texto){
+          try{
+            const resposta=JSON.parse(texto);
+            mensagem=resposta.erro||resposta.message||texto;
+          }catch{
+            mensagem=texto;
+          }
+        }
+      }catch{}
+    }
+
+    $('nErro').textContent=mensagem;
+    $('nErro').hidden=false;
+  }finally{
+    if(btn)btn.disabled=false;
+  }
+});
+
 $('listaEquipe').addEventListener('click',async e=>{
-  const bs=e.target.closest('[data-senha]'),bd=e.target.closest('[data-del]');
-  if(bs){
-    const u=usuarios.find(x=>x.id===Number(bs.dataset.senha));$('dlgEquipe').close();
-    const nova=await dialogo({titulo:'Nova senha de '+u.login,campo:true,tipo:'password',ok:'Salvar',validar:v=>v.length<6?'A senha deve ter pelo menos 6 caracteres.':''});
-    if(nova){const salt=novoSalt();Object.assign(u,{salt,hash:await hashSenha(nova,salt)});await dbSalvarUsuario(u);aviso('Senha alterada.');}
-    desenharEquipe();$('dlgEquipe').showModal();}
-  if(bd){
-    const u=usuarios.find(x=>x.id===Number(bd.dataset.del));$('dlgEquipe').close();
-    if(await dialogo({titulo:'Remover funcionário',texto:`Remover o acesso de ${u.login}?`,ok:'Remover',perigo:true})){await dbExcluirUsuario(u.id);await recarregarUsuarios();aviso('Acesso removido.');}
-    desenharEquipe();$('dlgEquipe').showModal();}});
+  const bs=e.target.closest('[data-senha]');
+  const bd=e.target.closest('[data-del]');
+
+  try{
+    if(bs){
+      const u=usuarios.find(x=>x.id===bs.dataset.senha);
+      if(!u)return;
+
+      $('dlgEquipe').close();
+
+      const nova=await dialogo({
+        titulo:'Nova senha de '+u.login,
+        campo:true,
+        tipo:'password',
+        ok:'Salvar',
+        validar:v=>v.length<6?'A senha deve ter pelo menos 6 caracteres.':''
+      });
+
+      if(nova){
+        const {data,error}=await supabaseClient.functions.invoke(
+          'rapid-endpoint',
+          {body:{acao:'alterar_senha',id:u.id,senha:nova}}
+        );
+
+        if(error)throw error;
+        if(data?.erro)throw new Error(data.erro);
+
+        aviso('Senha alterada com sucesso.');
+      }
+
+      desenharEquipe();
+      $('dlgEquipe').showModal();
+    }
+
+    if(bd){
+      const u=usuarios.find(x=>x.id===bd.dataset.del);
+      if(!u)return;
+
+      $('dlgEquipe').close();
+
+      if(await dialogo({
+        titulo:'Remover funcionário',
+        texto:`Remover o acesso de ${u.login}?`,
+        ok:'Remover',
+        perigo:true
+      })){
+        const {data,error}=await supabaseClient.functions.invoke(
+          'rapid-endpoint',
+          {body:{acao:'remover',id:u.id}}
+        );
+
+        if(error)throw error;
+        if(data?.erro)throw new Error(data.erro);
+
+        await recarregarUsuarios();
+        aviso('Acesso removido com sucesso.');
+      }
+
+      desenharEquipe();
+      $('dlgEquipe').showModal();
+    }
+  }catch(err){
+    aviso(err.message||'Não foi possível concluir a ação.');
+    desenharEquipe();
+    $('dlgEquipe').showModal();
+  }
+});
+
+
+
+/* ----- Início ----- */
 
 /* ----- Início ----- */
 (async function(){
   try{
-    if(!(window.crypto&&crypto.subtle))throw new Error('sem criptografia');
-    db=await abrirBanco();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
-    await recarregarUsuarios();
-    let id=null;try{id=Number(sessionStorage.getItem('otica-user'));}catch(e){}
-    const u=usuarios.find(x=>x.id===id);
-    if(u)await entrar(u);else mostrarLogin();
-  }catch(err){$('telaLogin').hidden=false;$('formLogin').innerHTML='<p class="erro">Erro ao abrir o sistema. Use o Chrome ou o Edge (sem janela anônima), com o arquivo aberto por https ou localhost.</p>';}})();
+    db=await abrirBanco();
+
+    const {data:{session},error}=await supabaseClient.auth.getSession();
+
+    if(error)throw error;
+
+    if(session){
+      const {data:perfil,error:erroPerfil}=await supabaseClient
+        .from('op_perfis')
+        .select('id,login,admin')
+        .eq('id',session.user.id)
+        .single();
+
+      if(erroPerfil)throw erroPerfil;
+
+      await entrar(perfil);
+    }else{
+      mostrarLogin();
+    }
+
+  }catch(err){
+    console.error(err);
+    $('telaLogin').hidden=false;
+    $('formLogin').innerHTML=
+      '<p class="erro">Erro ao iniciar o sistema: '+esc(err.message)+'</p>';
+  }
+})();
+
 </script>
 </body>
 </html>
