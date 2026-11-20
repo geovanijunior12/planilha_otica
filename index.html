@@ -307,6 +307,12 @@ dialog.pequeno{width:min(460px,92vw)}
 .login-card form{display:flex;flex-direction:column;gap:14px;text-align:left}
 .login-card .btn{width:100%;height:46px;font-size:15px}
 
+/* ---------- Relatórios ---------- */
+.grafico-wrap{overflow-x:auto;padding:14px 10px 6px;border-radius:var(--r-lg);border:1px solid var(--borda);background:var(--card);box-shadow:var(--sombra-2)}
+.grafico-wrap svg{display:block;min-width:100%;height:auto}
+.var-pos{color:var(--verm-600);font-weight:650}.var-neg{color:var(--verde-700);font-weight:650}
+.filtros .campo-rel{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
 /* ---------- Responsivo ---------- */
 @media(max-width:1100px){.btn .lbl{display:none}.topo-acoes .btn:not(#btnNovo){width:40px;padding:0}.topo-acoes #btnNovo .lbl{display:inline}}
 @media(max-width:900px){
@@ -346,6 +352,7 @@ dialog.pequeno{width:min(460px,92vw)}
   <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 16V5M7 9l5-5 5 5M5 20h14"/></symbol>
   <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.7a3.5 3.5 0 0 1 0 6.6M18 14.8c2 .6 3.2 2.3 3.5 5.2"/></symbol>
   <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h12v3"/><rect x="3" y="7" width="18" height="13" rx="3"/><path d="M16 13.5h2"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V4M4 20h16M8 16v-4M12 16V8M16 16v-6"/></symbol>
   <symbol id="i-out" viewBox="0 0 24 24"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l-4-4 4-4M6 12h10"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.8-3.8"/></symbol>
   <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4 6.5 6.5 0 0 0 20 14.5Z"/></symbol>
@@ -378,6 +385,7 @@ dialog.pequeno{width:min(460px,92vw)}
   </button>
   <nav class="topo-acoes" aria-label="Ações principais">
     <button class="btn btn-ghost" id="btnDespesas" title="Despesas"><svg class="i"><use href="#i-wallet"/></svg><span class="lbl">Despesas</span></button>
+    <button class="btn btn-ghost" id="btnRelatorios" title="Relatórios"><svg class="i"><use href="#i-chart"/></svg><span class="lbl">Relatórios</span></button>
     <button class="btn btn-ghost" id="btnEquipe" title="Equipe"><svg class="i"><use href="#i-users"/></svg><span class="lbl">Equipe</span></button>
     <button class="btn btn-ghost" id="btnExportar" title="Baixar backup"><svg class="i"><use href="#i-down"/></svg><span class="lbl">Backup</span></button>
     <button class="btn btn-ghost" id="btnImportar" title="Restaurar backup"><svg class="i"><use href="#i-up"/></svg><span class="lbl">Restaurar</span></button>
@@ -494,6 +502,47 @@ dialog.pequeno{width:min(460px,92vw)}
         <tbody id="dCorpo"></tbody>
       </table>
       <p class="vazio" id="dVazio" hidden>Nenhuma despesa encontrada.</p>
+    </div>
+  </section>
+
+  <!-- TELA DE RELATÓRIOS -->
+  <section id="telaRelatorios" hidden>
+    <div class="cid-barra">
+      <button class="btn btn-ghost" id="btnVoltarRel"><svg class="i"><use href="#i-back"/></svg>Cidades</button>
+      <strong>Relatórios</strong>
+      <button class="btn btn-accent" id="btnPdfRel"><svg class="i"><use href="#i-down"/></svg>Exportar PDF</button>
+    </div>
+    <div class="filtros">
+      <label>Período
+        <select id="rModo"><option value="mes">Mês específico</option><option value="intervalo">Intervalo de datas</option></select>
+      </label>
+      <label id="rMesBox">Mês <input type="month" id="rMes"></label>
+      <span class="campo-rel" id="rIntBox" hidden>
+        <label>De <input type="date" id="rDe"></label>
+        <label>Até <input type="date" id="rAte"></label>
+      </span>
+      <label>Pessoa <select id="rPessoa"></select></label>
+      <label>Categoria
+        <select id="rCat"><option value="">Todas</option><option>Alimentação</option><option>Hospedagem</option><option>Combustível</option><option>Passagem</option><option>Armação</option><option>Frete</option><option>Salários</option><option>Comissão</option><option>Outros</option></select>
+      </label>
+    </div>
+    <div class="resumo" id="rResumo"></div>
+    <h3 class="sec">Evolução mensal dos gastos</h3>
+    <div class="grafico-wrap" id="rGrafico"></div>
+    <h3 class="sec">Comparativo entre meses</h3>
+    <div class="matriz-wrap">
+      <table>
+        <thead><tr><th class="sem-ordem" scope="col">Mês</th><th class="sem-ordem num" scope="col">Despesas</th><th class="sem-ordem num" scope="col">Total</th><th class="sem-ordem num" scope="col">Variação (R$)</th><th class="sem-ordem num" scope="col">Variação (%)</th></tr></thead>
+        <tbody id="rComp"></tbody>
+      </table>
+    </div>
+    <h3 class="sec">Despesas do período</h3>
+    <div class="tabela-wrap">
+      <table>
+        <thead><tr><th class="sem-ordem" scope="col">Data</th><th class="sem-ordem" scope="col">Pessoa</th><th class="sem-ordem" scope="col">Categoria</th><th class="sem-ordem" scope="col">Descrição</th><th class="sem-ordem num" scope="col">Valor</th></tr></thead>
+        <tbody id="rCorpo"></tbody>
+      </table>
+      <p class="vazio" id="rVazio" hidden>Nenhuma despesa encontrada neste período.</p>
     </div>
   </section>
 </main>
@@ -816,7 +865,8 @@ function dialogo({titulo,texto='',campo=false,valor='',tipo='text',ok='OK',cance
 /* ===== Estado ===== */
 let clientes=[],cidades=[],despesas=[];
 let cidadeSel=null; // null = tela de cidades | 'todas' | 'sem' | id da cidade
-let telaDesp=false;
+let telaRel=false;
+let telaDesp=telaRel=false;
 let ordem={chave:'data_entrega',dir:1};
 let abaStatus='';
 const cidadePorId=id=>cidades.find(c=>c.id===id);
@@ -887,6 +937,8 @@ function estatisticas(lista,h){
 
 function desenhar(){
   desenharAlertas();
+  $('telaRelatorios').hidden=!telaRel;
+  if(telaRel){$('telaCidades').hidden=true;$('telaClientes').hidden=true;$('telaDespesas').hidden=true;return desenharRelatorios();}
   $('telaDespesas').hidden=!telaDesp;
   if(telaDesp){$('telaCidades').hidden=true;$('telaClientes').hidden=true;return desenharDespesas();}
   const emCidade=cidadeSel!==null;
@@ -1024,8 +1076,8 @@ $('formDesp').addEventListener('submit',async e=>{
 $('dpCancelar').addEventListener('click',()=>$('dlgDesp').close());
 $('dlgDesp').addEventListener('click',e=>{if(e.target===$('dlgDesp'))$('dlgDesp').close();});
 $('btnNovaDesp').addEventListener('click',()=>abrirDespesa(null));
-$('btnDespesas').addEventListener('click',()=>{telaDesp=true;desenhar();window.scrollTo(0,0);});
-$('btnVoltarDesp').addEventListener('click',()=>{telaDesp=false;cidadeSel=null;desenhar();});
+$('btnDespesas').addEventListener('click',()=>{telaDesp=true;telaRel=false;desenhar();window.scrollTo(0,0);});
+$('btnVoltarDesp').addEventListener('click',()=>{telaDesp=telaRel=false;cidadeSel=null;desenhar();});
 ['dMes','dPessoa','dCat'].forEach(id=>$(id).addEventListener('input',desenhar));
 $('dCorpo').addEventListener('click',async e=>{
   const b=e.target.closest('button[data-dacao]');if(!b)return;
@@ -1033,6 +1085,165 @@ $('dCorpo').addEventListener('click',async e=>{
   if(b.dataset.dacao==='editar')return abrirDespesa(d);
   if(!await dialogo({titulo:'Excluir despesa',texto:`Excluir ${d.categoria} de ${d.pessoa} (${moeda(d.valor)})? Esta ação não pode ser desfeita.`,ok:'Excluir',perigo:true}))return;
   await dbExcluirDespesa(d.id);await recarregar();aviso('Despesa excluída.');});
+
+/* ===== Relatórios (somente leitura sobre `despesas`) ===== */
+const brl=v=>moeda(v).replace(/\u00a0/g,' ');
+const mesLongo=m=>{const t=new Date(m+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});return t.charAt(0).toUpperCase()+t.slice(1);};
+const mesCurto=m=>new Date(m+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}).replace('.','');
+function somarMes(m,n){const[y,mo]=m.split('-').map(Number);const d=new Date(y,mo-1+n,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+function mesesEntre(a,b){const r=[];let m=a;while(m<=b&&r.length<120){r.push(m);m=somarMes(m,1);}return r.slice(-36);}
+
+function dadosRelatorio(){
+  const modo=$('rModo').value,pv=$('rPessoa').value,cv=$('rCat').value;
+  const base=despesas.filter(d=>d.data&&(!pv||norm(d.pessoa)===norm(pv))&&(!cv||d.categoria===cv));
+  let de,ate,rotulo,meses,destaque='';
+  if(modo==='mes'){
+    const m=$('rMes').value||hoje().slice(0,7);
+    de=m+'-01';ate=m+'-31';rotulo=mesLongo(m);destaque=m;meses=mesesEntre(somarMes(m,-11),m);
+  }else{
+    const datas=base.map(d=>d.data).sort();
+    de=$('rDe').value;ate=$('rAte').value;
+    rotulo=(de?dataBR(de):'início')+' a '+(ate?dataBR(ate):'hoje');
+    const ini=(de||datas[0]||hoje()).slice(0,7),fim=(ate||hoje()).slice(0,7);
+    meses=mesesEntre(ini,fim);
+  }
+  const lista=base.filter(d=>(!de||d.data>=de)&&(!ate||d.data<=ate))
+    .sort((a,b)=>a.data<b.data?1:a.data>b.data?-1:b.id-a.id);
+  const totais=meses.map(m=>{const l=base.filter(d=>d.data.slice(0,7)===m);return{mes:m,qtd:l.length,total:somaDesp(l)};});
+  const total=somaDesp(lista);
+  return{modo,pv,cv,rotulo,lista,totais,destaque,total,qtd:lista.length,media:lista.length?Math.round(total/lista.length):0};
+}
+
+function graficoSvg(totais,destaque){
+  if(!totais.length)return'<p class="vazio">Sem meses para exibir.</p>';
+  const W=Math.max(640,totais.length*64),H=270,pl=16,pr=16,pt=34,pb=44,n=totais.length;
+  const step=(W-pl-pr)/n,bw=Math.min(40,step*.58),max=Math.max(...totais.map(t=>t.total),1),ah=H-pt-pb;
+  const xs=totais.map((t,i)=>pl+step*i+step/2),ys=totais.map(t=>pt+ah-(t.total/max)*ah);
+  const compacto=v=>'R$ '+Math.round(v/100).toLocaleString('pt-BR');
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="${W}" role="img" aria-label="Evolução mensal dos gastos">`;
+  s+=`<line x1="${pl}" x2="${W-pr}" y1="${pt+ah}" y2="${pt+ah}" style="stroke:var(--borda-forte)"/>`;
+  totais.forEach((t,i)=>{
+    const h=(t.total/max)*ah,x=xs[i]-bw/2,y=pt+ah-h,cor=t.mes===destaque?'var(--verde-500)':'var(--neon)';
+    s+=`<rect x="${x}" y="${y}" width="${bw}" height="${Math.max(h,t.total?2:0)}" rx="6" style="fill:${cor};opacity:.85"/>`;
+    s+=`<text x="${xs[i]}" y="${y-8}" text-anchor="middle" font-size="11" font-weight="600" style="fill:var(--texto-2)">${t.total?compacto(t.total):'0'}</text>`;
+    s+=`<text x="${xs[i]}" y="${H-18}" text-anchor="middle" font-size="11.5" style="fill:var(--suave)">${mesCurto(t.mes)}</text>`;
+  });
+  if(n>1){
+    s+=`<polyline fill="none" stroke-width="2" stroke-linejoin="round" style="stroke:var(--turq)" points="${xs.map((x,i)=>x+','+ys[i]).join(' ')}"/>`;
+    xs.forEach((x,i)=>s+=`<circle cx="${x}" cy="${ys[i]}" r="3.5" style="fill:var(--turq)"/>`);
+  }
+  return s+'</svg>';
+}
+
+function desenharRelatorios(){
+  const modo=$('rModo').value;
+  $('rMesBox').hidden=modo!=='mes';$('rIntBox').hidden=modo!=='intervalo';
+  if(!$('rMes').value)$('rMes').value=hoje().slice(0,7);
+  if(modo==='intervalo'&&!$('rDe').value&&!$('rAte').value){$('rDe').value=hoje().slice(0,7)+'-01';$('rAte').value=hoje();}
+  const sel=$('rPessoa'),ant=sel.value;
+  sel.innerHTML='<option value="">Todas as pessoas</option>'+pessoasDesp().map(p=>`<option>${esc(p)}</option>`).join('');
+  sel.value=ant;
+  const r=dadosRelatorio();
+  const it=(rot,val,i,cls='')=>`<div class="item ${cls}" style="${atraso(i)}"><span>${rot}</span><strong>${val}</strong></div>`;
+  $('rResumo').innerHTML=it('Período',esc(r.rotulo),0)+it('Total de despesas',moeda(r.total),1,'alerta')+it('Quantidade',r.qtd,2)+it('Média por despesa',moeda(r.media),3);
+  $('rGrafico').innerHTML=graficoSvg(r.totais,r.destaque);
+  $('rComp').innerHTML=r.totais.map((t,i)=>{
+    const p=i?r.totais[i-1]:null,dif=p?t.total-p.total:null;
+    const pct=p&&p.total>0?(dif/p.total*100):null;
+    const cls=dif>0?'var-pos':dif<0?'var-neg':'';
+    return`<tr><td class="pess">${esc(mesLongo(t.mes))}</td><td class="num">${t.qtd}</td><td class="num"><b>${moeda(t.total)}</b></td>
+      <td class="num ${cls}">${dif===null?'—':(dif>0?'+':dif<0?'−':'')+moeda(Math.abs(dif))}</td>
+      <td class="num ${cls}">${pct===null?'—':(pct>0?'+':'')+pct.toFixed(1).replace('.',',')+'%'}</td></tr>`;}).join('');
+  $('rCorpo').innerHTML=r.lista.map((d,i)=>`<tr style="${atraso(i)}">
+    <td data-label="Data">${dataBR(d.data)}</td><td class="nome" data-label="Pessoa">${esc(d.pessoa)}</td>
+    <td data-label="Categoria"><span class="cat-tag">${esc(d.categoria)}</span></td>
+    <td class="obs" data-label="Descrição">${esc(d.descricao)||'—'}</td><td class="num" data-label="Valor">${moeda(d.valor)}</td></tr>`).join('');
+  $('rVazio').hidden=r.lista.length>0;
+}
+
+$('btnRelatorios').addEventListener('click',()=>{telaRel=true;telaDesp=false;desenhar();window.scrollTo(0,0);});
+$('btnVoltarRel').addEventListener('click',()=>{telaRel=false;cidadeSel=null;desenhar();});
+['rModo','rMes','rDe','rAte','rPessoa','rCat'].forEach(id=>$(id).addEventListener('input',desenhar));
+
+/* ----- PDF ----- */
+function carregarScript(src){return new Promise((ok,falha)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>falha(new Error('Falha ao carregar '+src));document.head.appendChild(s);});}
+async function prepararPdf(){
+  if(!window.jspdf)await carregarScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  if(!(window.jspdf&&window.jspdf.jsPDF.API.autoTable))await carregarScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
+}
+$('btnPdfRel').addEventListener('click',async()=>{
+  const btn=$('btnPdfRel');btn.disabled=true;
+  try{
+    await prepararPdf();
+    const r=dadosRelatorio();
+    const doc=new window.jspdf.jsPDF({unit:'pt',format:'a4'});
+    const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=40;
+    const AZ=[15,40,90],AC=[47,140,255],TX=[40,50,70],SU=[110,120,140];
+    // Cabeçalho
+    doc.setFillColor(...AZ);doc.rect(0,0,W,78,'F');doc.setFillColor(...AC);doc.rect(0,78,W,3,'F');
+    doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(20);doc.text('Olhar Paraibano',M,36);
+    doc.setFont('helvetica','normal');doc.setFontSize(12);doc.text('Relatório de Despesas',M,56);
+    doc.setFontSize(9);doc.text('Gerado em '+dataBR(hoje())+(usuarioAtual?' por '+usuarioAtual.login:''),W-M,56,{align:'right'});
+    // Filtros
+    doc.setTextColor(...TX);doc.setFontSize(10);
+    doc.setFont('helvetica','bold');doc.text('Período: ',M,102);
+    doc.setFont('helvetica','normal');doc.text(r.rotulo,M+doc.getTextWidth('Período: ')+2,102);
+    doc.text('Pessoa: '+(r.pv||'Todas')+'   |   Categoria: '+(r.cv||'Todas'),M,117);
+    // Cartões
+    const cards=[['Total',brl(r.total)],['Despesas',String(r.qtd)],['Média por despesa',brl(r.media)]];
+    const cw=(W-2*M-2*12)/3;
+    cards.forEach((c,i)=>{const x=M+i*(cw+12);
+      doc.setFillColor(238,244,255);doc.setDrawColor(200,215,240);doc.roundedRect(x,132,cw,52,6,6,'FD');
+      doc.setTextColor(...SU);doc.setFontSize(8.5);doc.setFont('helvetica','normal');doc.text(c[0].toUpperCase(),x+12,150);
+      doc.setTextColor(...AZ);doc.setFontSize(15);doc.setFont('helvetica','bold');doc.text(c[1],x+12,173);});
+    // Gráfico
+    let y=210;
+    doc.setTextColor(...AZ);doc.setFontSize(12);doc.setFont('helvetica','bold');doc.text('Evolução mensal dos gastos',M,y);
+    const gx=M,gy=y+12,gw=W-2*M,gh=150,ab=gh-34,n=r.totais.length;
+    if(n){
+      const max=Math.max(...r.totais.map(t=>t.total),1),step=gw/n,bw=Math.min(34,step*.6);
+      doc.setDrawColor(190,200,220);doc.line(gx,gy+ab+8,gx+gw,gy+ab+8);
+      const pts=[];
+      r.totais.forEach((t,i)=>{
+        const h=(t.total/max)*(ab-14),cx=gx+step*i+step/2,top=gy+ab+8-h;
+        doc.setFillColor(...(t.mes===r.destaque?[22,185,95]:AC));
+        if(h>0)doc.roundedRect(cx-bw/2,top,bw,h,2,2,'F');
+        doc.setFontSize(n>14?6:7.5);doc.setFont('helvetica','bold');doc.setTextColor(...TX);
+        doc.text(String(Math.round(t.total/100).toLocaleString('pt-BR')),cx,top-4,{align:'center'});
+        doc.setFont('helvetica','normal');doc.setTextColor(...SU);doc.setFontSize(n>14?6:8);
+        doc.text(mesCurto(t.mes),cx,gy+ab+22,{align:'center'});
+        pts.push([cx,top]);});
+      if(pts.length>1){doc.setDrawColor(25,211,176);doc.setLineWidth(1.2);
+        for(let i=1;i<pts.length;i++)doc.line(pts[i-1][0],pts[i-1][1],pts[i][0],pts[i][1]);
+        doc.setFillColor(25,211,176);pts.forEach(p=>doc.circle(p[0],p[1],2,'F'));doc.setLineWidth(.5);}
+      doc.setFontSize(7);doc.setTextColor(...SU);doc.text('Valores em R$ (arredondados).',gx,gy+gh+6);
+    }
+    y=gy+gh+22;
+    const estilo={headStyles:{fillColor:AZ,textColor:255,fontSize:9},styles:{fontSize:9,cellPadding:5,textColor:TX},alternateRowStyles:{fillColor:[246,249,255]},margin:{left:M,right:M}};
+    // Comparativo
+    doc.autoTable({...estilo,startY:y,head:[['Mês','Despesas','Total','Variação (R$)','Variação (%)']],
+      body:r.totais.map((t,i)=>{const p=i?r.totais[i-1]:null,dif=p?t.total-p.total:null,pct=p&&p.total>0?dif/p.total*100:null;
+        return[mesLongo(t.mes),t.qtd,brl(t.total),dif===null?'—':(dif>0?'+':dif<0?'-':'')+brl(Math.abs(dif)),pct===null?'—':(pct>0?'+':'')+pct.toFixed(1).replace('.',',')+'%'];}),
+      columnStyles:{1:{halign:'right'},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'}}});
+    // Lançamentos
+    y=doc.lastAutoTable.finalY+22;
+    if(y>H-120){doc.addPage();y=M;}
+    doc.setTextColor(...AZ);doc.setFontSize(12);doc.setFont('helvetica','bold');doc.text('Despesas do período',M,y);
+    doc.autoTable({...estilo,startY:y+8,head:[['Data','Pessoa','Categoria','Descrição','Valor']],
+      body:r.lista.length?r.lista.map(d=>[dataBR(d.data),d.pessoa||'',d.categoria||'',d.descricao||'—',brl(d.valor)]):[[{content:'Nenhuma despesa neste período.',colSpan:5,styles:{halign:'center'}}]],
+      foot:r.lista.length?[[{content:'Total ('+r.qtd+' despesa'+(r.qtd===1?'':'s')+')',colSpan:4,styles:{halign:'right'}},brl(r.total)]]:undefined,
+      footStyles:{fillColor:[225,236,255],textColor:AZ,fontStyle:'bold'},
+      columnStyles:{4:{halign:'right'}}});
+    // Rodapé em todas as páginas
+    const pgs=doc.getNumberOfPages();
+    for(let i=1;i<=pgs;i++){doc.setPage(i);doc.setDrawColor(200,215,240);doc.line(M,H-32,W-M,H-32);
+      doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(...SU);
+      doc.text('Olhar Paraibano — Relatório de Despesas',M,H-20);doc.text('Página '+i+' de '+pgs,W-M,H-20,{align:'right'});}
+    doc.save('relatorio-despesas-'+hoje()+'.pdf');
+    aviso('PDF gerado.');
+  }catch(err){aviso('Não foi possível gerar o PDF: '+(err.message||err));}
+  finally{btn.disabled=false;}
+});
 
 /* ===== Formulário ===== */
 const dlg=$('dlg');
@@ -1104,7 +1315,7 @@ $('form').addEventListener('submit',async e=>{
   e.preventDefault();const{dados,erro}=lerFormulario();if(erro)return mostrarErro(erro);
   try{await dbSalvar(dados);dlg.close();await recarregar();aviso('Cliente salvo.');}
   catch(err){mostrarErro('Não foi possível salvar: '+(err&&err.message?err.message:err));}});
-$('btnNovo').addEventListener('click',()=>{if(telaDesp){telaDesp=false;desenhar();}abrirFormulario(null);});
+$('btnNovo').addEventListener('click',()=>{if(telaDesp||telaRel){telaDesp=telaRel=false;desenhar();}abrirFormulario(null);});
 $('btnCancelar').addEventListener('click',()=>dlg.close());
 dlg.addEventListener('click',e=>{if(e.target===dlg)dlg.close();});
 $('fCpf').addEventListener('input',e=>e.target.value=formatarCpf(e.target.value));
@@ -1138,7 +1349,7 @@ document.addEventListener('keydown',e=>{
   if(document.querySelector('dialog[open]')||$('app').hidden)return;
   const tag=(e.target.tagName||'').toLowerCase(),digitando=['input','textarea','select'].includes(tag);
   if(e.key==='/'&&!digitando&&!$('telaClientes').hidden){e.preventDefault();$('busca').focus();}
-  if(e.key==='Escape'&&!digitando&&(cidadeSel!==null||telaDesp)){telaDesp=false;cidadeSel=null;desenhar();}});
+  if(e.key==='Escape'&&!digitando&&(cidadeSel!==null||telaDesp||telaRel)){telaDesp=telaRel=false;cidadeSel=null;desenhar();}});
 
 /* ----- Cidades ----- */
 const nomeLivre=(n,ign)=>!cidades.some(c=>c.id!==ign&&norm(c.nome)===norm(n));
@@ -1163,7 +1374,7 @@ $('cidades').addEventListener('click',e=>{
   const b=e.target.closest('.cc[data-cid]');if(!b)return;
   const v=b.dataset.cid;cidadeSel=v==='todas'||v==='sem'?v:Number(v);
   limparFiltros();desenhar();window.scrollTo(0,0);});
-const irCidades=()=>{telaDesp=false;cidadeSel=null;desenhar();window.scrollTo(0,0);};
+const irCidades=()=>{telaDesp=telaRel=false;cidadeSel=null;desenhar();window.scrollTo(0,0);};
 $('btnVoltar').addEventListener('click',irCidades);
 $('marca').addEventListener('click',irCidades);
 $('btnRenCidade').addEventListener('click',renomearCidade);
@@ -1258,7 +1469,7 @@ async function entrar(u){
   $('app').hidden=false;
 
   cidadeSel=null;
-  telaDesp=false;
+  telaDesp=telaRel=false;
   limparFiltros();
 
   await recarregar();
@@ -1478,8 +1689,6 @@ $('listaEquipe').addEventListener('click',async e=>{
 });
 
 
-
-/* ----- Início ----- */
 
 /* ----- Início ----- */
 (async function(){
