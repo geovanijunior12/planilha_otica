@@ -478,6 +478,7 @@ dialog.pequeno{width:min(460px,92vw)}
       <strong>Despesas</strong>
       <button class="btn btn-accent" id="btnNovaDesp"><svg class="i"><use href="#i-plus"/></svg>Nova despesa</button>
     </div>
+    <div class="abas" id="dAbasBloco" role="tablist" aria-label="Bloco de despesas"></div>
     <div class="filtros">
       <label>Mês <input type="month" id="dMes"></label>
       <label>Pessoa <select id="dPessoa"></select></label>
@@ -513,6 +514,7 @@ dialog.pequeno{width:min(460px,92vw)}
       <button class="btn btn-accent" id="btnPdfRel"><svg class="i"><use href="#i-down"/></svg>Exportar PDF</button>
     </div>
     <div class="filtros">
+      <label>Despesas de <select id="rBloco"></select></label>
       <label>Período
         <select id="rModo"><option value="mes">Mês específico</option><option value="intervalo">Intervalo de datas</option></select>
       </label>
@@ -1009,19 +1011,25 @@ function desenharCidades(){
 
 /* ===== Despesas (patrão e funcionários) ===== */
 const CATS=['Alimentação','Hospedagem','Combustível','Passagem','Armação','Frete','Salários','Comissão','Outros'];
-function pessoasDesp(){
+/* Blocos de despesas: cada bloco tem seus próprios lançamentos, pessoas e totais.
+   As despesas antigas (sem "bloco") ficam automaticamente no bloco 'a'. */
+const BLOCOS=[{id:'a',nome:'Despesas'},{id:'b',nome:'Despesas 2'}]; /* mude os nomes aqui */
+let blocoDesp='a';
+const blocoDe=d=>d.bloco||'a';
+function pessoasDesp(bl=blocoDesp){
   const m=new Map();
   usuarios.forEach(u=>m.set(norm(u.login),u.login));
-  despesas.forEach(d=>{if(d.pessoa&&!m.has(norm(d.pessoa)))m.set(norm(d.pessoa),d.pessoa);});
+  despesas.filter(d=>blocoDe(d)===bl).forEach(d=>{if(d.pessoa&&!m.has(norm(d.pessoa)))m.set(norm(d.pessoa),d.pessoa);});
   return[...m.values()].sort((a,b)=>norm(a)<norm(b)?-1:1);}
 const somaDesp=l=>l.reduce((t,d)=>t+(d.valor||0),0);
 function desenharDespesas(){
   if(!$('dMes').value)$('dMes').value=hoje().slice(0,7);
+  $('dAbasBloco').innerHTML=BLOCOS.map(b=>`<button class="aba ${b.id===blocoDesp?'ativa':''}" role="tab" aria-selected="${b.id===blocoDesp}" data-b="${b.id}">${esc(b.nome)} <small>${despesas.filter(d=>blocoDe(d)===b.id).length}</small></button>`).join('');
   const mes=$('dMes').value,pessoas=pessoasDesp(),selP=$('dPessoa'),anterior=selP.value;
   selP.innerHTML='<option value="">Geral (todas as pessoas)</option>'+pessoas.map(p=>`<option>${esc(p)}</option>`).join('');
   selP.value=anterior;const pv=selP.value,cv=$('dCat').value;
   $('listaPessoas').innerHTML=pessoas.map(p=>`<option value="${esc(p)}">`).join('');
-  const doMes=despesas.filter(d=>(d.data||'').slice(0,7)===mes);
+  const doMes=despesas.filter(d=>blocoDe(d)===blocoDesp&&(d.data||'').slice(0,7)===mes);
   const basePessoa=doMes.filter(d=>!pv||norm(d.pessoa)===norm(pv));
   const lista=basePessoa.filter(d=>!cv||d.categoria===cv).sort((a,b)=>a.data<b.data?1:a.data>b.data?-1:b.id-a.id);
 
@@ -1067,7 +1075,7 @@ $('formDesp').addEventListener('submit',async e=>{
   if(!pessoa)return er('Informe a pessoa.');
   if(!Number.isFinite(valor)||valor<=0)return er('Informe um valor maior que zero.');
   const ex=pessoasDesp().find(p=>norm(p)===norm(pessoa));
-  const dados={data,pessoa:ex||pessoa,categoria:$('dpCat').value,valor,descricao:$('dpDesc').value.trim()};
+  const dados={data,pessoa:ex||pessoa,categoria:$('dpCat').value,valor,descricao:$('dpDesc').value.trim(),bloco:blocoDesp};
   if($('dpId').value)dados.id=Number($('dpId').value);
   try{await dbSalvarDespesa(dados);$('dlgDesp').close();
     if(data.slice(0,7)!==$('dMes').value)$('dMes').value=data.slice(0,7);
@@ -1079,6 +1087,9 @@ $('btnNovaDesp').addEventListener('click',()=>abrirDespesa(null));
 $('btnDespesas').addEventListener('click',()=>{telaDesp=true;telaRel=false;desenhar();window.scrollTo(0,0);});
 $('btnVoltarDesp').addEventListener('click',()=>{telaDesp=telaRel=false;cidadeSel=null;desenhar();});
 ['dMes','dPessoa','dCat'].forEach(id=>$(id).addEventListener('input',desenhar));
+$('dAbasBloco').addEventListener('click',e=>{
+  const b=e.target.closest('.aba');if(!b)return;
+  blocoDesp=b.dataset.b;$('dPessoa').value='';$('dCat').value='';desenhar();});
 $('dCorpo').addEventListener('click',async e=>{
   const b=e.target.closest('button[data-dacao]');if(!b)return;
   const d=despesas.find(x=>x.id===Number(b.dataset.id));if(!d)return;
@@ -1095,7 +1106,8 @@ function mesesEntre(a,b){const r=[];let m=a;while(m<=b&&r.length<120){r.push(m);
 
 function dadosRelatorio(){
   const modo=$('rModo').value,pv=$('rPessoa').value,cv=$('rCat').value;
-  const base=despesas.filter(d=>d.data&&(!pv||norm(d.pessoa)===norm(pv))&&(!cv||d.categoria===cv));
+  const bl=$('rBloco').value||'a';
+  const base=despesas.filter(d=>blocoDe(d)===bl&&d.data&&(!pv||norm(d.pessoa)===norm(pv))&&(!cv||d.categoria===cv));
   let de,ate,rotulo,meses,destaque='';
   if(modo==='mes'){
     const m=$('rMes').value||hoje().slice(0,7);
@@ -1136,12 +1148,13 @@ function graficoSvg(totais,destaque){
 }
 
 function desenharRelatorios(){
+  if(!$('rBloco').options.length){$('rBloco').innerHTML=BLOCOS.map(b=>`<option value="${b.id}">${esc(b.nome)}</option>`).join('');$('rBloco').value=blocoDesp;}
   const modo=$('rModo').value;
   $('rMesBox').hidden=modo!=='mes';$('rIntBox').hidden=modo!=='intervalo';
   if(!$('rMes').value)$('rMes').value=hoje().slice(0,7);
   if(modo==='intervalo'&&!$('rDe').value&&!$('rAte').value){$('rDe').value=hoje().slice(0,7)+'-01';$('rAte').value=hoje();}
   const sel=$('rPessoa'),ant=sel.value;
-  sel.innerHTML='<option value="">Todas as pessoas</option>'+pessoasDesp().map(p=>`<option>${esc(p)}</option>`).join('');
+  sel.innerHTML='<option value="">Todas as pessoas</option>'+pessoasDesp($('rBloco').value||'a').map(p=>`<option>${esc(p)}</option>`).join('');
   sel.value=ant;
   const r=dadosRelatorio();
   const it=(rot,val,i,cls='')=>`<div class="item ${cls}" style="${atraso(i)}"><span>${rot}</span><strong>${val}</strong></div>`;
@@ -1163,7 +1176,7 @@ function desenharRelatorios(){
 
 $('btnRelatorios').addEventListener('click',()=>{telaRel=true;telaDesp=false;desenhar();window.scrollTo(0,0);});
 $('btnVoltarRel').addEventListener('click',()=>{telaRel=false;cidadeSel=null;desenhar();});
-['rModo','rMes','rDe','rAte','rPessoa','rCat'].forEach(id=>$(id).addEventListener('input',desenhar));
+['rModo','rMes','rDe','rAte','rPessoa','rCat','rBloco'].forEach(id=>$(id).addEventListener('input',desenhar));
 
 /* ----- PDF ----- */
 function carregarScript(src){return new Promise((ok,falha)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>falha(new Error('Falha ao carregar '+src));document.head.appendChild(s);});}
