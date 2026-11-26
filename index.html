@@ -1735,5 +1735,113 @@ $('listaEquipe').addEventListener('click',async e=>{
 })();
 
 </script>
+
+<!-- =====================================================================
+  OLHAR PARAIBANO — EDIÇÃO DE NATAL (decoração independente)
+  Para remover: apague este bloco (do início ao fim) — nada mais muda.
+  ===================================================================== -->
+<style id="natal-css">
+#natal,#natal *{pointer-events:none!important;user-select:none;-webkit-user-select:none}
+#natal{position:fixed;inset:0;z-index:0;overflow:hidden;contain:strict}
+.nat-brilho{position:absolute;inset:0;z-index:-1;background:
+  radial-gradient(420px 260px at 0 0,rgba(255,77,94,.10),transparent 70%),
+  radial-gradient(420px 260px at 100% 0,rgba(46,229,138,.09),transparent 70%),
+  radial-gradient(520px 200px at 50% 0,rgba(255,207,74,.06),transparent 70%)}
+#nat-luzes{position:fixed;top:0;left:0;right:0;z-index:45;height:22px;margin:0;padding:env(safe-area-inset-top,0px) 0 0;list-style:none;display:flex;pointer-events:none;overflow:hidden}
+#nat-luzes li{position:relative;flex:1 0 0;height:20px;--c:#ff4d5e}
+#nat-luzes li::before{content:"";position:absolute;left:0;right:0;top:0;height:8px;border-bottom:1.5px solid rgba(150,180,225,.38);border-radius:0 0 50% 50%/0 0 100% 100%}
+#nat-luzes li::after{content:"";position:absolute;left:calc(50% - 3px);top:7px;width:6px;height:9px;border-top:2px solid #3a4a68;border-radius:45% 45% 50% 50%/30% 30% 70% 70%;background:var(--c);box-shadow:0 0 7px 1px var(--c),0 0 16px 2px color-mix(in srgb,var(--c) 45%,transparent);opacity:.9;animation:nat-pisca 3.4s ease-in-out infinite;animation-delay:var(--d,0s)}
+#nat-luzes li:nth-child(4n+2){--c:#2ee58a}
+#nat-luzes li:nth-child(4n+3){--c:#ffcf4a}
+#nat-luzes li:nth-child(4n+4){--c:#eaf4ff}
+@keyframes nat-pisca{0%,100%{opacity:.95;transform:scale(1)}50%{opacity:.4;transform:scale(.88)}}
+#nat-neve{position:absolute;inset:0;z-index:2}
+.nat-f{position:absolute;top:-12px;left:var(--x);width:var(--s);height:var(--s);border-radius:50%;
+  background:radial-gradient(circle,#fff 0,rgba(255,255,255,.55) 45%,transparent 72%);opacity:var(--o);
+  animation:nat-cai var(--d) linear var(--t) infinite;will-change:transform}
+@keyframes nat-cai{
+  0%{transform:translate3d(0,-4vh,0)}
+  50%{transform:translate3d(var(--dx),50vh,0)}
+  100%{transform:translate3d(calc(var(--dx) * -.5),108vh,0)}}
+:root[data-tema=light] .nat-f{background:radial-gradient(circle,#8fbdf5 0,rgba(110,165,235,.55) 45%,transparent 72%)}
+.nat-canto{position:absolute;bottom:0;width:clamp(64px,8vw,124px);opacity:.78;z-index:1;filter:drop-shadow(0 0 14px rgba(46,229,138,.22))}
+.nat-canto svg{display:block;width:100%;height:auto;overflow:visible}
+.nat-esq{left:6px}
+.nat-dir{right:6px}
+.nat-dir svg{transform:scaleX(-1)}
+.nat-flocoC{position:absolute;color:rgba(190,225,255,.5);z-index:1;animation:nat-gira 40s linear infinite}
+.nat-flocoC svg{display:block;width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round}
+.nat-fc1{left:14px;top:64px;width:34px;height:34px}
+.nat-fc2{right:18px;top:70px;width:26px;height:26px;animation-direction:reverse;animation-duration:55s;color:rgba(255,207,74,.5)}
+:root[data-tema=light] .nat-flocoC{color:rgba(60,120,200,.4)}
+@keyframes nat-gira{to{transform:rotate(360deg)}}
+.nat-estrela{animation:nat-brilha 3.2s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+.nat-orn{animation:nat-brilha 2.6s ease-in-out infinite}
+.nat-orn.b{animation-delay:-.9s}.nat-orn.c{animation-delay:-1.7s}
+@keyframes nat-brilha{0%,100%{opacity:1}50%{opacity:.45}}
+@media(max-width:900px){.nat-canto{opacity:.6}.nat-fc1,.nat-fc2{display:none}}
+@media(max-width:520px){.nat-canto{width:54px;opacity:.5}}
+@media(prefers-reduced-motion:reduce){#nat-neve{display:none}#nat-luzes li::after,.nat-estrela,.nat-orn,.nat-flocoC{animation:none!important}}
+@media print{#natal,#nat-luzes{display:none!important}}
+</style>
+
+<div id="natal" aria-hidden="true">
+  <div class="nat-brilho"></div>
+  <div id="nat-neve"></div>
+  <div class="nat-flocoC nat-fc1"></div>
+  <div class="nat-flocoC nat-fc2"></div>
+  <div class="nat-canto nat-esq" id="natEsq"></div>
+  <div class="nat-canto nat-dir" id="natDir"></div>
+</div>
+<ul id="nat-luzes" aria-hidden="true"></ul>
+
+<script id="natal-js">
+(function(){
+  try{
+    var $n=function(i){return document.getElementById(i)};
+    var reduzir=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var arvore=
+    '<svg viewBox="0 0 120 190" aria-hidden="true">'+
+      '<polygon class="nat-estrela" points="60,4 64,15 76,15 66,22 70,34 60,27 50,34 54,22 44,15 56,15" fill="#ffcf4a"/>'+
+      '<polygon points="60,24 90,78 30,78" fill="#0e4d33" stroke="#2ee58a" stroke-width="1.2" stroke-opacity=".7"/>'+
+      '<polygon points="60,50 100,112 20,112" fill="#10603f" stroke="#2ee58a" stroke-width="1.2" stroke-opacity=".7"/>'+
+      '<polygon points="60,80 110,150 10,150" fill="#127649" stroke="#2ee58a" stroke-width="1.2" stroke-opacity=".7"/>'+
+      '<rect x="53" y="150" width="14" height="14" fill="#5a3a22"/>'+
+      '<path d="M38 70 Q60 82 82 70M30 104 Q60 120 90 104M22 140 Q60 160 98 140" fill="none" stroke="#ffcf4a" stroke-width="1.6" stroke-opacity=".85"/>'+
+      '<circle class="nat-orn" cx="50" cy="58" r="3.2" fill="#ff4d5e"/><circle class="nat-orn b" cx="68" cy="88" r="3.2" fill="#ffcf4a"/>'+
+      '<circle class="nat-orn c" cx="46" cy="118" r="3.4" fill="#eaf4ff"/><circle class="nat-orn" cx="76" cy="124" r="3.4" fill="#ff4d5e"/>'+
+      '<circle class="nat-orn b" cx="34" cy="146" r="3.2" fill="#ffcf4a"/><circle class="nat-orn c" cx="88" cy="146" r="3.2" fill="#eaf4ff"/>'+
+      '<rect x="6" y="166" width="30" height="22" rx="2" fill="#b3202f"/><rect x="19" y="166" width="4" height="22" fill="#ffcf4a"/><rect x="6" y="174" width="30" height="4" fill="#ffcf4a"/>'+
+      '<rect x="44" y="172" width="22" height="16" rx="2" fill="#0f7a4a"/><rect x="53" y="172" width="4" height="16" fill="#eaf4ff"/>'+
+      '<rect x="74" y="168" width="26" height="20" rx="2" fill="#c9a227"/><rect x="85" y="168" width="4" height="20" fill="#b3202f"/><rect x="74" y="176" width="26" height="4" fill="#b3202f"/>'+
+    '</svg>';
+    $n('natEsq').innerHTML=arvore;$n('natDir').innerHTML=arvore;
+    var floco='<svg viewBox="0 0 24 24"><path d="M12 2v20M3.3 7l17.4 10M3.3 17L20.7 7M9 4l3 2 3-2M9 20l3-2 3 2"/></svg>';
+    document.querySelectorAll('.nat-flocoC').forEach(function(e){e.innerHTML=floco});
+    var luzes=$n('nat-luzes');
+    function montarLuzes(){
+      var n=Math.max(10,Math.round(innerWidth/38)),h='';
+      for(var i=0;i<n;i++)h+='<li style="--d:'+(-(i*0.37%3.4)).toFixed(2)+'s"></li>';
+      luzes.innerHTML=h;
+    }
+    montarLuzes();
+    var rt;addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(montarLuzes,250)});
+    if(!reduzir){
+      var neve=$n('nat-neve'),qtd=Math.max(14,Math.min(44,Math.round(innerWidth/32))),f='';
+      for(var j=0;j<qtd;j++){
+        var s=(2+Math.random()*3.2).toFixed(1),
+            x=(Math.random()*100).toFixed(1),
+            d=(14+Math.random()*16).toFixed(1),
+            t=(-Math.random()*30).toFixed(1),
+            o=(.25+Math.random()*.45).toFixed(2),
+            dx=((Math.random()<.5?-1:1)*(14+Math.random()*40)).toFixed(0);
+        f+='<span class="nat-f" style="--x:'+x+'%;--s:'+s+'px;--d:'+d+'s;--t:'+t+'s;--o:'+o+';--dx:'+dx+'px"></span>';
+      }
+      neve.innerHTML=f;
+    }
+  }catch(e){/* decoração nunca deve afetar o sistema */}
+})();
+</script>
+<!-- ======================= FIM DA EDIÇÃO DE NATAL ======================= -->
 </body>
 </html>
